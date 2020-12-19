@@ -1,0 +1,12 @@
+overwrite: true
+schema:
+  - http://localhost:8080/v1/graphql:
+      headers:
+        "x-hasura-admin-secret": time-scale-secret
+documents: "apps/logify/src/**/*.graphql"
+generates:
+  apps/logify/src/types.ts:
+    plugins:
+      - "typescript"
+      - "typescript-operations"
+      - "typescript-react-apollo"

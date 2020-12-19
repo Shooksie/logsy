@@ -1,0 +1,28 @@
+query GetGrid($id: uuid!) {
+  grid_by_pk(id: $id) {
+    created_at
+    grid
+    id
+    name
+    owner
+    updated_at
+  }
+}
+
+query GetExistingGrids {
+  grid(order_by: {updated_at: desc}) {
+    id
+    name
+    owner
+    updated_at
+    created_at
+  }
+}
+
+mutation CreateGrid($grid: jsonb = "", $name: String = "", $owner: uuid = "", $id: uuid = "") {
+  insert_grid_one(object: {grid: $grid, name: $name, owner: $owner, id: $id}, on_conflict: {constraint: grid_pkey, update_columns: grid}) {
+    id
+    name
+    owner
+  }
+}

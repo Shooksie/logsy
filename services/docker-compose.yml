@@ -1,0 +1,88 @@
+version: '3.6'
+services:
+  auth-db:
+    image: postgres:12
+    restart: always
+    volumes:
+      - db_auth_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgrespassword
+
+  youtube-ingestion:
+    build:
+      context: ./youtube-extractor
+      dockerfile: Dockerfile
+    volumes:
+      - ./youtube-extractor:/service/app:rw
+    ports:
+      - "5059:5059"
+
+  auth-graphql-engine:
+    image: hasura/graphql-engine:v1.3.3
+    ports:
+      - "8081:8080"
+    depends_on:
+      - "timescale"
+    restart: always
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: postgres://postgres:postgrespassword@auth-db:5432/postgres
+      ## enable the console served by server
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true" # set to "false" to disable console
+      ## enable debugging mode. It is recommended to disable this in production
+      HASURA_GRAPHQL_DEV_MODE: "true"
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
+      ## uncomment next line to set an admin secret
+      HASURA_GRAPHQL_ADMIN_SECRET: "auth-secret-key"
+
+  auth:
+    ports:
+      - "5057:5057"
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    depends_on:
+      - "auth-db"
+    #    command: ls
+    environment:
+      GRAPHQL_URL: http://auth-graphql-engine:8081/v1/graphql
+      GRAPHQL_ADMIN_SECRET: "auth-secret-key"
+    volumes:
+      - ./auth:/service/app:rw
+
+  ingestion:
+    ports:
+      - "5058:5058"
+    build:
+      context: ./ingestion
+      dockerfile: Dockerfile
+    command: uvicorn api:app --host 0.0.0.0 --port 5058 --reload
+    volumes:
+      - ./ingestion:/service/:rw
+  timescale:
+    image: timescale/timescaledb-postgis:latest-pg12
+    restart: always
+    volumes:
+      - db_time_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgrespassword
+
+  graphql-engine:
+    image: hasura/graphql-engine:v1.3.3
+    ports:
+      - "8080:8080"
+    depends_on:
+      - "timescale"
+    restart: always
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: postgres://postgres:postgrespassword@timescale:5432/postgres
+      ## enable the console served by server
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true" # set to "false" to disable console
+      ## enable debugging mode. It is recommended to disable this in production
+      HASURA_GRAPHQL_DEV_MODE: "true"
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
+        ## uncomment next line to set an admin secret
+      HASURA_GRAPHQL_ADMIN_SECRET: "time-scale-secret"
+volumes:
+  db_time_data:
+  db_auth_data:
+
